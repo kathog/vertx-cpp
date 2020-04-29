@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.17)
-project(vertx_cpp_asio)
+project(vertx-cpp)
 
 set(CMAKE_CXX_STANDARD 20)
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
@@ -19,10 +19,6 @@ set_property(TARGET evpp PROPERTY IMPORTED_LOCATION /usr/local/lib/libevpp_stati
 
 add_library(evpp_boost STATIC IMPORTED)
 set_property(TARGET evpp_boost PROPERTY IMPORTED_LOCATION /usr/local/lib/libevpp_boost_static.a)
-
-
-add_library(folly STATIC IMPORTED)
-set_property(TARGET folly PROPERTY IMPORTED_LOCATION /home/nerull/.conan/data/folly/2019.10.21.00/_/_/package/ae597ff653a101fc637fda1a020129e228a1aca9/lib/libfolly.a)
 
 add_executable(vertx_cpp_exe main.cpp
         src/vertx/hazelcast_cluster.cpp src/vertx/event_bus.hpp src/vertx/net_server.hpp src/vertx/uuid.hpp)

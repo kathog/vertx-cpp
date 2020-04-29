@@ -59,7 +59,7 @@ class NetServer {
                 std::string addr = "0.0.0.0:" + std::to_string(port);
                 for (uint32_t i = 0; i < _options.getPoolSize(); i++) {
                     evpp::EventLoop* next = _workerThreadLocal->GetNextLoop();
-                    std::shared_ptr<evpp::TCPServer> s(new evpp::TCPServer(_workerPool.get(), addr, std::to_string(i) + "#server", _options.getPoolSize()));
+                    std::shared_ptr<evpp::TCPServer> s(new evpp::TCPServer(next, addr, std::to_string(i) + "#server", 0));
                     s->SetMessageCallback([this] (const evpp::TCPConnPtr& conn, evpp::Buffer* msg) {
                         this->_cb(conn, msg);
                     });
