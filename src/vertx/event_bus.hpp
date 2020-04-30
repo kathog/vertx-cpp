@@ -25,10 +25,6 @@ using namespace std::chrono_literals;
 namespace eventbus {
 
 
-
-    typedef std::function<void(const clustered_message&)> MsgCallback;
-    typedef std::function<void(const clustered_message&, clustered_message&)> RequestMsgCallback;
-
     struct EventBusOptions {
 
     public:
@@ -78,6 +74,7 @@ namespace eventbus {
         std::shared_ptr<evpp::EventLoop> _eventBusPool;
         std::shared_ptr<evpp::EventLoopThreadPool> _eventBusThreadLocal;
         std::unordered_map<std::string, RequestMsgCallback> _consumers;
+        std::unordered_map<std::string, RequestMsgCallback> _consumersLocal;
         std::unordered_map<std::string, MsgCallback> _publishers;
         std::vector<std::future<void>> evConnect;
         std::unordered_map<long, std::shared_ptr<evpp::TCPClient>> endpoints;
@@ -107,6 +104,16 @@ namespace eventbus {
         }
 
         /**
+         * Dodanie konsumera lokalnego do eventbus
+         *
+         * @param address - adres na jakim na nasłuchiwać
+         * @param function - funkcjia do wywołania
+         */
+        void consumerLocal (std::string&& address, RequestMsgCallback function) {
+            _consumersLocal.emplace(address, function);
+        }
+
+        /**
          * Wysłanie zapytania do consumera za pomocą eventbus
          *
          * @param address - adres konsumera
@@ -114,17 +121,23 @@ namespace eventbus {
          * @param func - funkcja wywołana po otrzymaniu odpowiedzi
          */
         void request (std::string&& address, std::any value, const MsgCallback& func) {
+            auto it = _consumersLocal.find(address);
             std::string uuid_ = "__vertx.reply." + uuid::generateUUID();
-            ServerID server_ = hz->next(address);
-
-            {
-                std::unique_lock<std::mutex> lock(_resp_mutex);
-                _publishers.emplace(uuid_, const_cast<MsgCallback&>(func));
+            if (it == _consumersLocal.end()) {
+                ServerID server_ = hz->next(address);
+                clustered_message request_message = clustered_message{0, 1, 9, true, uuid_, address, server_.getPort(), server_.getHost(), 4, value};
+                request_message.setRequest(true);
+                {
+                    std::unique_lock<std::mutex> lock(_resp_mutex);
+                    _publishers.emplace(uuid_, const_cast<MsgCallback&>(func));
+                }
+                processOnTcpMessage(std::move(request_message));
+            } else {
+                clustered_message request_message = clustered_message{0, 1, 9, true, uuid_, address, options.getPort(), options.getHost(), 4, value};
+                request_message.setRequest(true);
+                request_message.setFunc(it->second, func);
+                processOnTcpMessage(std::move(request_message));
             }
-            clustered_message request_message = clustered_message{0, 1, 9, true, uuid_, address, server_.getPort(), server_.getHost(), 4, value};
-            request_message.setRequest(true);
-
-            processOnTcpMessage(std::move(request_message));
         }
 
         /**
@@ -161,6 +174,14 @@ namespace eventbus {
             if (request_message.isRequest()) {
                 _eventBusThreadLocal->GetNextLoop()->QueueInLoop([this, request_message = std::move(request_message), addr = std::move(addr)] () {
 
+                    if (request_message.isLocal()) {
+                        clustered_message response_message{0, 1, 9, true, request_message.getAddress(), request_message.getReplay(),options.getPort(), request_message.getHost(), 4, ""};
+                        clustered_message msg = request_message;
+                        request_message.getFunc()(request_message, msg);
+                        request_message.getCallbackFunc()(msg);
+                        return ;
+                    }
+
                     // jeśli wiadomość jest na tego samego vertx
                     if (request_message.getHost() == options.getHost() && request_message.getPort() == options.getPort()) {
                         auto function_invoke = _consumers[request_message.getReplay()];
@@ -194,11 +215,9 @@ namespace eventbus {
             if (address.find("__vertx.reply") != std::string::npos) {
                 {
                     std::unique_lock<std::mutex> lock(_resp_mutex);
-                    auto it = _publishers.find(address);
-                    if (it != _publishers.end()) {
-                        it->second(request_message);
-                        _publishers.erase(address);
-                    }
+                    auto reposne_invoke = _publishers[address];
+                    reposne_invoke(request_message);
+                    _publishers.erase(address);
                 }
 
                 return;

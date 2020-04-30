@@ -12,6 +12,11 @@
 #include <condition_variable>
 #include <any>
 
+class clustered_message;
+
+typedef std::function<void(const clustered_message&, clustered_message&)> RequestMsgCallback;
+typedef std::function<void(const clustered_message&)> MsgCallback;
+
 class clustered_message {
 
 public:
@@ -161,6 +166,24 @@ public:
         this->request = request;
     }
 
+    const RequestMsgCallback &getFunc() const {
+        return func;
+    }
+
+    const MsgCallback &getCallbackFunc() const {
+        return callbackFunc;
+    }
+
+    void setFunc(const RequestMsgCallback &func, const MsgCallback& callbackFunc) {
+        this->func = func;
+        this->callbackFunc = callbackFunc;
+        this->local = true;
+    }
+
+    bool isLocal() const {
+        return local;
+    }
+
 private:
     inline static int int_value (const char * value, int& startIdx) {
         return (( (value[startIdx++] & 0xff) << 24) |( (value[startIdx++] & 0xff) << 16) |( (value[startIdx++] & 0xff) << 8) | ( (value[startIdx++] & 0xff)));
@@ -232,6 +255,9 @@ private:
     int headers;
     std::any body;
     bool request;
+    RequestMsgCallback func;
+    MsgCallback callbackFunc;
+    bool local = false;
 };
 
 inline int int_value (const char * value, int& startIdx) {

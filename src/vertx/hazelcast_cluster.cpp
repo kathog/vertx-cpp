@@ -27,7 +27,6 @@ void hazelcast_cluster::join(int port, std::string & host) {
 
     _subs = std::make_shared<subs> (_hazelcast.getMultiMap<std::string, std::string>("__vertx.subs"));
     for (auto & [key, value] : _subs->entrySet()) {
-
         ClusterNodeInfo node = ClusterNodeInfo::toObject(value);
         std::queue<ServerID> queue_;
         queue_.push(node.getServerId());
