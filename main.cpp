@@ -12,17 +12,15 @@ int main(int argc, char* argv[]) {
 //    FLAGS_logbuflevel = google::GLOG_INFO;
 //    FLAGS_colorlogtostderr = 1;
     google::InitGoogleLogging(argv[0]);
-
-    DLOG(INFO) << "dupa";
-
     hazelcast::client::ClientConfig config;
     hazelcast::client::Address a{"127.0.0.1", 5701 };
     config.getNetworkConfig().addAddress(a);
     config.setExecutorPoolSize(1);
+    config.getSerializationConfig().addDataSerializableFactory(1001, boost::shared_ptr<serialization::DataSerializableFactory>(new ClusterNodeInfoFactory()));
 
     vertx::VertxOptions op;
-    op.setConfig(config).setWorkerPoolSize(2);
-    op.getEventBusOptions().setEventBusPoolSize(8);
+    op.setConfig(config).setWorkerPoolSize(4);
+    op.getEventBusOptions().setEventBusPoolSize(4);
 
     std::shared_ptr<vertx::Vertx> vertx = vertx::Vertx::clusteredVertx(op);
 
@@ -31,7 +29,7 @@ int main(int argc, char* argv[]) {
 
     vertx->createNetServer(netOp)->listen(9091, [&] (const evpp::TCPConnPtr& conn, evpp::Buffer* buff)  {
 
-        vertx->eventBus()->request("tarcza", uuid::generateUUID(), [&conn, buff] (const clustered_message& response) {
+        vertx->eventBus()->request("tarcza", "uuid::generateUUID()", [&conn, buff] (const clustered_message& response) {
             const std::string resp = "HTTP/1.1 200 OK\ncontent-length: 0\n\n";
 //            LOG_INFO << "request " << response;
             conn->Send(resp.c_str(), resp.size());
@@ -42,7 +40,18 @@ int main(int argc, char* argv[]) {
 
     vertx->createNetServer(netOp)->listen(9092, [=] (const evpp::TCPConnPtr& conn, evpp::Buffer* buff)  {
 
-        vertx->eventBus()->request("dupa", uuid::generateUUID(), [&conn, buff] (const clustered_message& response) {
+        vertx->eventBus()->request("dupa", "uuid::generateUUID()", [&conn, buff] (const clustered_message& response) {
+            const std::string resp = "HTTP/1.1 200 OK\ncontent-length: 0\n\n";
+//            LOG_INFO << "request " << response;
+            conn->Send(resp.c_str(), resp.size());
+            buff->Reset();
+        });
+
+    });
+
+    vertx->createNetServer(netOp)->listen(9093, [=] (const evpp::TCPConnPtr& conn, evpp::Buffer* buff)  {
+
+        vertx->eventBus()->request("tarcza2", "uuid::generateUUID()", [&conn, buff] (const clustered_message& response) {
             const std::string resp = "HTTP/1.1 200 OK\ncontent-length: 0\n\n";
 //            LOG_INFO << "request " << response;
             conn->Send(resp.c_str(), resp.size());
@@ -53,7 +62,13 @@ int main(int argc, char* argv[]) {
 
     vertx->eventBus()->consumer("tarcza", [] (const clustered_message& msg, clustered_message& response) {
 //        LOG_INFO << "consumer " <<msg;
-        response.setBody(std::string(uuid::generateUUID()));
+        response.setBody(std::string("uuid::generateUUID()"));
+    });
+
+
+    vertx->eventBus()->consumerLocal("tarcza2", [] (const clustered_message& msg, clustered_message& response) {
+//        LOG_INFO << "consumer " <<msg;
+        response.setBody(std::string("uuid::generateUUID()"));
     });
 
     vertx->run();

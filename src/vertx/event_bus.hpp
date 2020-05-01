@@ -122,8 +122,8 @@ namespace eventbus {
          */
         void request (std::string&& address, std::any value, const MsgCallback& func) {
             auto it = _consumersLocal.find(address);
-            std::string uuid_ = "__vertx.reply." + uuid::generateUUID();
-            if (it == _consumersLocal.end()) {
+            if (it == _consumersLocal.cend()) {
+                std::string uuid_ = "__vertx.reply." + uuid::generateUUID();
                 ServerID server_ = hz->next(address);
                 clustered_message request_message = clustered_message{0, 1, 9, true, uuid_, address, server_.getPort(), server_.getHost(), 4, value};
                 request_message.setRequest(true);
@@ -133,7 +133,7 @@ namespace eventbus {
                 }
                 processOnTcpMessage(std::move(request_message));
             } else {
-                clustered_message request_message = clustered_message{0, 1, 9, true, uuid_, address, options.getPort(), options.getHost(), 4, value};
+                clustered_message request_message = clustered_message{0, 1, 9, true, "__vertx.reply.local", address, options.getPort(), options.getHost(), 4, value};
                 request_message.setRequest(true);
                 request_message.setFunc(it->second, func);
                 processOnTcpMessage(std::move(request_message));

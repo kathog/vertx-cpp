@@ -22,11 +22,12 @@
 //#include <folly/concurrency/ConcurrentHashMap.h>
 
 using namespace rapidjson;
+class ClusterNodeInfo;
 
 using haInfo = hazelcast::client::IMap<std::string, std::string>;
-using subs = hazelcast::client::MultiMap<std::string, std::string>;
+using subs = hazelcast::client::MultiMap<std::string, ClusterNodeInfo>;
 
-class ServerID {
+class ServerID : public hazelcast::client::serialization::IdentifiedDataSerializable {
 public:
     ServerID() {};
     ServerID(int port, const std::string &host) : port(port), host(host) {};
@@ -39,15 +40,36 @@ public:
         return host;
     }
 
+    int getFactoryId() const override {
+        return 1002;
+    }
+
+    int getClassId() const override {
+        return 1002;
+    }
+
+    void writeData(serialization::ObjectDataOutput &writer) const override {
+        writer.writeInt(port);
+        writer.writeUTF(&host);
+
+    }
+
+    void readData(serialization::ObjectDataInput &reader) override {
+        port = reader.readInt();
+        host = *reader.readUTF();
+    }
+
 private:
     int port;
     std::string host;
 };
 
-class ClusterNodeInfo {
+class ClusterNodeInfo : public hazelcast::client::serialization::IdentifiedDataSerializable {
 public:
     ClusterNodeInfo(const std::string &nodeId, const ServerID &serverId) : nodeId(nodeId), serverId(serverId) {}
     ClusterNodeInfo() {};
+
+    ~ClusterNodeInfo() {};
 
     static inline ClusterNodeInfo toObject (std::string json) {
         ClusterNodeInfo node;
@@ -67,10 +89,39 @@ public:
         return serverId;
     }
 
+    int getFactoryId() const override {
+        return 1001;
+    }
+
+    int getClassId() const override {
+        return 1001;
+    }
+
+    void writeData(serialization::ObjectDataOutput &writer) const override {
+        writer.writeUTF(&nodeId);
+        writer.writeInt(serverId.getPort());
+        writer.writeUTF(&serverId.getHost());
+    }
+
+    void readData(serialization::ObjectDataInput &reader) override {
+        nodeId = *reader.readUTF();
+        int port = reader.readInt();
+        std::string host = *reader.readUTF();
+        serverId = {port, host};
+    }
+
 private:
     std::string nodeId;
     ServerID serverId;
 };
+
+
+class ClusterNodeInfoFactory : public  hazelcast::client::serialization::DataSerializableFactory {
+    std::auto_ptr<ClusterNodeInfo::IdentifiedDataSerializable> create(int32_t classId) override {
+        return std::auto_ptr<ClusterNodeInfo>(new ClusterNodeInfo());
+    }
+};
+
 
 class HaEntryListener: public EntryListener<std::string, std::string> {
 
@@ -110,7 +161,7 @@ public:
 };
 
 
-class hazelcast_cluster: public MembershipListener, LifecycleListener, EntryListener<std::string, std::string>, std::enable_shared_from_this<hazelcast_cluster> {
+class hazelcast_cluster: public MembershipListener, LifecycleListener, EntryListener<std::string, ClusterNodeInfo>, std::enable_shared_from_this<hazelcast_cluster> {
 
 public:
     hazelcast_cluster(ClientConfig config);
@@ -130,17 +181,17 @@ public:
     ServerID next(std::string);
 
 private:
-    void entryAdded(const EntryEvent<std::string, std::string> &event) override;
+    void entryAdded(const EntryEvent<std::string, ClusterNodeInfo> &event) override;
 
-    void entryRemoved(const EntryEvent<std::string, std::string> &event) override;
+    void entryRemoved(const EntryEvent<std::string, ClusterNodeInfo> &event) override;
 
-    void entryUpdated(const EntryEvent<std::string, std::string> &event) override;
+    void entryUpdated(const EntryEvent<std::string, ClusterNodeInfo> &event) override;
 
-    void entryEvicted(const EntryEvent<std::string, std::string> &event) override;
+    void entryEvicted(const EntryEvent<std::string, ClusterNodeInfo> &event) override;
 
-    void entryExpired(const EntryEvent<std::string, std::string> &event) override;
+    void entryExpired(const EntryEvent<std::string, ClusterNodeInfo> &event) override;
 
-    void entryMerged(const EntryEvent<std::string, std::string> &event) override;
+    void entryMerged(const EntryEvent<std::string, ClusterNodeInfo> &event) override;
 
     void mapEvicted(const MapEvent &event) override;
 
@@ -159,7 +210,7 @@ private:
 //    SubEntryListener _subListener;
     HaEntryListener _haListener;
 
-    std::unordered_multimap<std::string, std::string> _local_subs;
+    std::unordered_multimap<std::string, ClusterNodeInfo> _local_subs;
     std::unordered_map<std::string, std::queue<ServerID>> _local_endpoints;
 
 
