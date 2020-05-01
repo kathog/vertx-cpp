@@ -12,33 +12,33 @@
 #include <condition_variable>
 #include <any>
 
-class clustered_message;
+class ClusteredMessage;
 
-typedef std::function<void(const clustered_message&, clustered_message&)> RequestMsgCallback;
-typedef std::function<void(const clustered_message&)> MsgCallback;
+typedef std::function<void(const ClusteredMessage&, ClusteredMessage&)> RequestMsgCallback;
+typedef std::function<void(const ClusteredMessage&)> MsgCallback;
 
-class clustered_message {
+class ClusteredMessage {
 
 public:
 
-    inline clustered_message to_message (std::string& msg) {
+    inline ClusteredMessage to_message (std::string& msg) {
         const char * b_data = msg.c_str();
         int index = 0;
-        clustered_message message {int_value(b_data, index),
-                                   (int) b_data[index++],
-                                   (int) b_data[index++],
-                                   (((int) b_data[index++]) == 0),
-                                   string_value(b_data, index),
-                                   string_value(b_data, index),
-                                   int_value(b_data, index),
-                                   string_value(b_data, index),
-                                   int_value(b_data, index),
-                                   string_value(b_data, index)
+        ClusteredMessage message {int_value(b_data, index),
+                                  (int) b_data[index++],
+                                  (int) b_data[index++],
+                                  (((int) b_data[index++]) == 0),
+                                  string_value(b_data, index),
+                                  string_value(b_data, index),
+                                  int_value(b_data, index),
+                                  string_value(b_data, index),
+                                  int_value(b_data, index),
+                                  string_value(b_data, index)
                                    };
         return std::move(message);
     }
 
-    clustered_message to_message (std::string&& msg) {
+    ClusteredMessage to_message (std::string&& msg) {
         const char * b_data = msg.c_str();
         int index = 0;
         return {
@@ -84,17 +84,17 @@ public:
         set_int(result, 0, index - 4);
     }
 
-    clustered_message() {}
+    ClusteredMessage() {}
 
-//    clustered_message(const clustered_message& msg) = delete;
+//    ClusteredMessage(const ClusteredMessage& msg) = delete;
 
-    clustered_message(int messageSize, int protocolVersion, int systemCodecId, bool send, const std::string &address,
-                        const std::string &replay, int port, const std::string &host, int headers,
-                        const std::any &body) : message_size(messageSize), protocol_version(protocolVersion),
+    ClusteredMessage(int messageSize, int protocolVersion, int systemCodecId, bool send, const std::string &address,
+                     const std::string &replay, int port, const std::string &host, int headers,
+                     const std::any &body) : message_size(messageSize), protocol_version(protocolVersion),
                                                  system_codec_id(systemCodecId), send(send), address(address),
                                                  replay(replay), port(port), host(host), headers(headers), body(body) {}
 
-    friend std::ostream &operator<<(std::ostream &os, const clustered_message &message) {
+    friend std::ostream &operator<<(std::ostream &os, const ClusteredMessage &message) {
         os << "message_size: " << message.message_size << "\n protocol_version: " << message.protocol_version
            << "\n system_codec_id: " << message.system_codec_id << "\n send: " << message.send << "\n address: "
            << message.address << "\n replay: " << message.replay << "\n port: " << message.port << "\n host: " << message.host
@@ -103,11 +103,11 @@ public:
     }
 
     void setPort(int port) {
-        clustered_message::port = port;
+        ClusteredMessage::port = port;
     }
 
     void setHost(const std::string &host) {
-        clustered_message::host = host;
+        ClusteredMessage::host = host;
     }
 
     void setBody(const std::any &body) {
@@ -276,11 +276,11 @@ inline std::string string_value (const char * value, int& startIdx) {
     return s.str();
 }
 
-inline clustered_message to_message (const std::string& msg, bool request) {
+inline ClusteredMessage to_message (const std::string& msg, bool request) {
     const char * b_data = msg.c_str();
     int index = 0;
 
-    clustered_message message = {
+    ClusteredMessage message = {
             int_value(b_data, index),
             (int) b_data[index++],
             (int) b_data[index++],
@@ -297,11 +297,11 @@ inline clustered_message to_message (const std::string& msg, bool request) {
     return std::move(message);
 }
 
-inline clustered_message to_message (std::string&& msg, bool request) {
+inline ClusteredMessage to_message (std::string&& msg, bool request) {
     const char * b_data = msg.c_str();
     int index = 0;
 
-    clustered_message message = {
+    ClusteredMessage message = {
             int_value(b_data, index),
             (int) b_data[index++],
             (int) b_data[index++],
@@ -318,11 +318,11 @@ inline clustered_message to_message (std::string&& msg, bool request) {
     return std::move(message);
 }
 
-inline clustered_message to_message (std::string&& msg) {
+inline ClusteredMessage to_message (std::string&& msg) {
     const char * b_data = msg.c_str();
     int index = 0;
 
-    clustered_message message = {
+    ClusteredMessage message = {
             int_value(b_data, index),
             (int) b_data[index++],
             (int) b_data[index++],
@@ -339,7 +339,7 @@ inline clustered_message to_message (std::string&& msg) {
 }
 
 
-inline std::string to_string(clustered_message& message) {
+inline std::string to_string(ClusteredMessage& message) {
     std::string s_message;
     s_message.resize(2048);
     int index = 0;

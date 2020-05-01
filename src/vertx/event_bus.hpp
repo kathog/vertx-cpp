@@ -10,7 +10,7 @@
 #include <thread>
 #include <evpp/event_loop.h>
 #include <evpp/event_loop_thread_pool.h>
-#include "clustered_message.h"
+#include "ClusteredMessage.h"
 #include "uuid.hpp"
 #include <evpp/buffer.h>
 #include <evpp/tcp_conn.h>
@@ -79,9 +79,9 @@ namespace eventbus {
         std::vector<std::future<void>> evConnect;
         std::unordered_map<long, std::shared_ptr<evpp::TCPClient>> endpoints;
         std::vector<std::future<void>> fs;
-//        std::queue<clustered_message> _messages;
+//        std::queue<ClusteredMessage> _messages;
 
-//        moodycamel::ConcurrentQueue<clustered_message> _messages;
+//        moodycamel::ConcurrentQueue<ClusteredMessage> _messages;
 
 //        std::mutex _queue_mutex;
         std::mutex _resp_mutex;
@@ -109,7 +109,7 @@ namespace eventbus {
          * @param address - adres na jakim na nasłuchiwać
          * @param function - funkcjia do wywołania
          */
-        void consumerLocal (std::string&& address, RequestMsgCallback function) {
+        void localConsumer (std::string&& address, RequestMsgCallback function) {
             _consumersLocal.emplace(address, function);
         }
 
@@ -125,7 +125,7 @@ namespace eventbus {
             if (it == _consumersLocal.cend()) {
                 std::string uuid_ = "__vertx.reply." + uuid::generateUUID();
                 ServerID server_ = hz->next(address);
-                clustered_message request_message = clustered_message{0, 1, 9, true, uuid_, address, server_.getPort(), server_.getHost(), 4, value};
+                ClusteredMessage request_message = ClusteredMessage{0, 1, 9, true, uuid_, address, server_.getPort(), server_.getHost(), 4, value};
                 request_message.setRequest(true);
                 {
                     std::unique_lock<std::mutex> lock(_resp_mutex);
@@ -133,7 +133,7 @@ namespace eventbus {
                 }
                 processOnTcpMessage(std::move(request_message));
             } else {
-                clustered_message request_message = clustered_message{0, 1, 9, true, "__vertx.reply.local", address, options.getPort(), options.getHost(), 4, value};
+                ClusteredMessage request_message = ClusteredMessage{0, 1, 9, true, "__vertx.reply.local", address, options.getPort(), options.getHost(), 4, value};
                 request_message.setRequest(true);
                 request_message.setFunc(it->second, func);
                 processOnTcpMessage(std::move(request_message));
@@ -155,7 +155,7 @@ namespace eventbus {
             }
 
             _eventBusThreadLocal->GetNextLoop()->QueueInLoop([this, request = std::move(request)] () {
-                clustered_message request_message = to_message(request, false);
+                ClusteredMessage request_message = to_message(request, false);
                 processOnTcpMessage(std::move(request_message));
             });
 
@@ -167,7 +167,7 @@ namespace eventbus {
 
     private:
 
-        void processOnTcpMessage (clustered_message&& request_message) {
+        void processOnTcpMessage (ClusteredMessage&& request_message) {
             std::string addr = request_message.getHost() + ":" +std::to_string(request_message.getPort());
 
             // jeśli wiadomość jest zapytaniem z request
@@ -175,8 +175,8 @@ namespace eventbus {
                 _eventBusThreadLocal->GetNextLoop()->QueueInLoop([this, request_message = std::move(request_message), addr = std::move(addr)] () {
 
                     if (request_message.isLocal()) {
-                        clustered_message response_message{0, 1, 9, true, request_message.getAddress(), request_message.getReplay(),options.getPort(), request_message.getHost(), 4, ""};
-                        clustered_message msg = request_message;
+                        ClusteredMessage response_message{0, 1, 9, true, request_message.getAddress(), request_message.getReplay(), options.getPort(), request_message.getHost(), 4, ""};
+                        ClusteredMessage msg = request_message;
                         request_message.getFunc()(request_message, msg);
                         request_message.getCallbackFunc()(msg);
                         return ;
@@ -185,8 +185,8 @@ namespace eventbus {
                     // jeśli wiadomość jest na tego samego vertx
                     if (request_message.getHost() == options.getHost() && request_message.getPort() == options.getPort()) {
                         auto function_invoke = _consumers[request_message.getReplay()];
-                        clustered_message response_message{0, 1, 9, true, request_message.getAddress(), request_message.getReplay(),options.getPort(), request_message.getHost(), 4, ""};
-                        clustered_message msg = request_message;
+                        ClusteredMessage response_message{0, 1, 9, true, request_message.getAddress(), request_message.getReplay(), options.getPort(), request_message.getHost(), 4, ""};
+                        ClusteredMessage msg = request_message;
                         function_invoke(request_message, msg);
                         {
                             std::unique_lock<std::mutex> lock(_resp_mutex);
@@ -198,7 +198,7 @@ namespace eventbus {
                     }
 
                     // jeśli jest na innego vertx
-                    clustered_message msg = request_message;
+                    ClusteredMessage msg = request_message;
                     msg.setPort(options.getPort());
                     msg.setHost(options.getHost());
                     std::string message_str = to_string(msg);
@@ -226,7 +226,7 @@ namespace eventbus {
             auto function_invoke = _consumers[request_message.getAddress()];
 
             _eventBusThreadLocal->GetNextLoop()->QueueInLoop([this, function_invoke, request_message = std::move(request_message), addr = std::move(addr)] () {
-                clustered_message response_message{0, 1, 9, true, request_message.getAddress(), request_message.getReplay(),options.getPort(), request_message.getHost(), 4, ""};
+                ClusteredMessage response_message{0, 1, 9, true, request_message.getAddress(), request_message.getReplay(), options.getPort(), request_message.getHost(), 4, ""};
                 function_invoke(request_message, response_message);
 
                 std::string message_str = to_string(response_message);

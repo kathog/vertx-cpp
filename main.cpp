@@ -1,7 +1,7 @@
 #include <iostream>
 //#define DCHECK_ALWAYS_ON
 #include <hazelcast/client/ClientConfig.h>
-#include "src/vertx/clustered_message.h"
+#include "src/vertx/ClusteredMessage.h"
 #include "src/vertx/vertx.h"
 #include "src/vertx/uuid.hpp"
 #include <evpp/dns_resolver.h>
@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
 
     vertx->createNetServer(netOp)->listen(9091, [&] (const evpp::TCPConnPtr& conn, evpp::Buffer* buff)  {
 
-        vertx->eventBus()->request("tarcza", "uuid::generateUUID()", [&conn, buff] (const clustered_message& response) {
+        vertx->eventBus()->request("tarcza", "uuid::generateUUID()", [&conn, buff] (const ClusteredMessage& response) {
             const std::string resp = "HTTP/1.1 200 OK\ncontent-length: 0\n\n";
 //            LOG_INFO << "request " << response;
             conn->Send(resp.c_str(), resp.size());
@@ -40,7 +40,7 @@ int main(int argc, char* argv[]) {
 
     vertx->createNetServer(netOp)->listen(9092, [=] (const evpp::TCPConnPtr& conn, evpp::Buffer* buff)  {
 
-        vertx->eventBus()->request("dupa", "uuid::generateUUID()", [&conn, buff] (const clustered_message& response) {
+        vertx->eventBus()->request("dupa", "uuid::generateUUID()", [&conn, buff] (const ClusteredMessage& response) {
             const std::string resp = "HTTP/1.1 200 OK\ncontent-length: 0\n\n";
 //            LOG_INFO << "request " << response;
             conn->Send(resp.c_str(), resp.size());
@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) {
 
     vertx->createNetServer(netOp)->listen(9093, [=] (const evpp::TCPConnPtr& conn, evpp::Buffer* buff)  {
 
-        vertx->eventBus()->request("tarcza2", "uuid::generateUUID()", [&conn, buff] (const clustered_message& response) {
+        vertx->eventBus()->request("tarcza2", "uuid::generateUUID()", [&conn, buff] (const ClusteredMessage& response) {
             const std::string resp = "HTTP/1.1 200 OK\ncontent-length: 0\n\n";
 //            LOG_INFO << "request " << response;
             conn->Send(resp.c_str(), resp.size());
@@ -60,15 +60,15 @@ int main(int argc, char* argv[]) {
 
     });
 
-    vertx->eventBus()->consumer("tarcza", [] (const clustered_message& msg, clustered_message& response) {
+    vertx->eventBus()->consumer("tarcza", [] (const ClusteredMessage& msg, ClusteredMessage& response) {
 //        LOG_INFO << "consumer " <<msg;
         response.setBody(std::string("uuid::generateUUID()"));
     });
 
 
-    vertx->eventBus()->consumerLocal("tarcza2", [] (const clustered_message& msg, clustered_message& response) {
-//        LOG_INFO << "consumer " <<msg;
-        response.setBody(std::string("uuid::generateUUID()"));
+    vertx->eventBus()->localConsumer("tarcza2", [](const ClusteredMessage &msg, ClusteredMessage &response) {
+//        LOG_INFO << "consumer " << uuid::generate_uuid_v4();
+        response.setBody(uuid::generateUUID());
     });
 
     vertx->run();

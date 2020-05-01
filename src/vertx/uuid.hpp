@@ -6,24 +6,40 @@
 #define VERTX_CPP_ASIO_UUID_HPP
 
 #include <string>
-#include <cstdlib>
+#include <random>
 
 namespace uuid {
-    const std::string CHARS = "0123456789abcdef";
+
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_int_distribution<> dis(0, 15);
+    static std::uniform_int_distribution<> dis2(8, 11);
 
     std::string generateUUID() {
-        std::string uuid = std::string(36,' ');
-        uuid[8] = '-';
-        uuid[13] = '-';
-        uuid[18] = '-';
-        uuid[23] = '-';
-        for(int i=0;i<36;i++){
-            if (i != 8 && i != 13 && i != 18 && i != 23) {
-                int idx = std::rand() % CHARS.size();
-                uuid[i] = CHARS[idx];
-            }
+        std::stringstream ss;
+        int i;
+        ss << std::hex;
+        for (i = 0; i < 8; i++) {
+            ss << dis(gen);
         }
-        return uuid;
+        ss << "-";
+        for (i = 0; i < 4; i++) {
+            ss << dis(gen);
+        }
+        ss << "-4";
+        for (i = 0; i < 3; i++) {
+            ss << dis(gen);
+        }
+        ss << "-";
+        ss << dis2(gen);
+        for (i = 0; i < 3; i++) {
+            ss << dis(gen);
+        }
+        ss << "-";
+        for (i = 0; i < 12; i++) {
+            ss << dis(gen);
+        };
+        return ss.str();
     }
 
 }
