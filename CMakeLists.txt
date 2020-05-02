@@ -24,5 +24,12 @@ add_executable(vertx_cpp_exe main.cpp
         src/vertx/hazelcast_cluster.cpp src/vertx/event_bus.hpp src/vertx/net_server.hpp src/vertx/uuid.hpp)
 
 target_link_libraries(vertx_cpp_exe ${LIBRARIES_SEARCH_PATHS}  -lpthread -lrt -lssl -lcrypto -lc CONAN_PKG::glog CONAN_PKG::libevent evpp_boost evpp
-        hazelcast CONAN_PKG::asio CONAN_PKG::rapidjson CONAN_PKG::concurrentqueue -ltcmalloc)
+        hazelcast CONAN_PKG::asio CONAN_PKG::rapidjson CONAN_PKG::concurrentqueue CONAN_PKG::fmt -ltcmalloc)
 #-ltcmalloc
+
+
+add_executable(vertx_cpp_bench src/benchmark.cpp
+        src/vertx/hazelcast_cluster.cpp src/vertx/event_bus.hpp src/vertx/net_server.hpp src/vertx/uuid.hpp)
+
+target_link_libraries(vertx_cpp_bench ${LIBRARIES_SEARCH_PATHS}  -lpthread -lrt -lssl -lcrypto -lc CONAN_PKG::glog CONAN_PKG::libevent evpp_boost evpp
+        hazelcast CONAN_PKG::asio CONAN_PKG::rapidjson CONAN_PKG::concurrentqueue CONAN_PKG::fmt -ltcmalloc benchmark)

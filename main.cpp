@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
 
     vertx::VertxOptions op;
     op.setConfig(config).setWorkerPoolSize(4);
-    op.getEventBusOptions().setEventBusPoolSize(4);
+    op.getEventBusOptions().setEventBusPoolSize(12);
 
     std::shared_ptr<vertx::Vertx> vertx = vertx::Vertx::clusteredVertx(op);
 

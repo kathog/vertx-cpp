@@ -56,10 +56,10 @@ class NetServer {
                 _workerPool = std::make_shared<evpp::EventLoop>();
                 _workerThreadLocal = std::make_shared<evpp::EventLoopThreadPool>(_workerPool.get(), _options.getPoolSize());
                 _workerThreadLocal->Start(true);
-                std::string addr = "0.0.0.0:" + std::to_string(port);
+                std::string addr = "0.0.0.0:" + fmt::format_int(port).str();
                 for (uint32_t i = 0; i < _options.getPoolSize(); i++) {
                     evpp::EventLoop* next = _workerThreadLocal->GetNextLoop();
-                    std::shared_ptr<evpp::TCPServer> s(new evpp::TCPServer(next, addr, std::to_string(i) + "#server", 0));
+                    std::shared_ptr<evpp::TCPServer> s(new evpp::TCPServer(next, addr, fmt::format_int(i).str() + "#server", 0));
                     s->SetMessageCallback([this] (const evpp::TCPConnPtr& conn, evpp::Buffer* msg) {
                         this->_cb(conn, msg);
                     });
@@ -67,7 +67,7 @@ class NetServer {
                     s->Start();
                     _tcpServers.push_back(s);
                 }
-                LOG_INFO << "bind net server to host: [0.0.0.0]:" << std::to_string(port);
+                LOG_INFO << "bind net server to host: [0.0.0.0]:" << fmt::format_int(port).str();
                 _workerPool->Run();
             });
             th.detach();

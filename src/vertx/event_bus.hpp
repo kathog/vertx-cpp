@@ -18,12 +18,13 @@
 #include <evpp/tcp_client.h>
 #include <moodycamel/concurrentqueue.h>
 #include <moodycamel/blockingconcurrentqueue.h>
+#include <fmt/format.h>
+#include <boost/thread/mutex.hpp>
 
 
 using namespace std::chrono_literals;
 
 namespace eventbus {
-
 
     struct EventBusOptions {
 
@@ -85,6 +86,10 @@ namespace eventbus {
 
 //        std::mutex _queue_mutex;
         std::mutex _resp_mutex;
+
+//        boost::mutex _resp_mutex;
+
+
 //        std::condition_variable _condition;
 
     public:
@@ -120,24 +125,28 @@ namespace eventbus {
          * @param value - wartość do przesłania
          * @param func - funkcja wywołana po otrzymaniu odpowiedzi
          */
-        void request (std::string&& address, std::any value, const MsgCallback& func) {
-            auto it = _consumersLocal.find(address);
-            if (it == _consumersLocal.cend()) {
-                std::string uuid_ = "__vertx.reply." + uuid::generateUUID();
-                ServerID server_ = hz->next(address);
-                ClusteredMessage request_message = ClusteredMessage{0, 1, 9, true, uuid_, address, server_.getPort(), server_.getHost(), 4, value};
-                request_message.setRequest(true);
-                {
+        void request (std::string&& address, std::any value, MsgCallback func) {
+            _eventBusThreadLocal->GetNextLoop()->QueueInLoop([this, address = std::move(address), value = std::move(value), func = std::move(func)]() {
+                auto it = _consumersLocal.find(address);
+                if (it == _consumersLocal.cend()) {
+                    std::string uuid_ = "__vertx.reply." + uuid::generateUUID();
+                    ServerID server_ = hz->next(address);
+                    ClusteredMessage request_message = ClusteredMessage{0, 1, 9, true, uuid_, address, server_.getPort(), server_.getHost(), 4, value};
+                    request_message.setRequest(true);
+                    {
                     std::unique_lock<std::mutex> lock(_resp_mutex);
-                    _publishers.emplace(uuid_, const_cast<MsgCallback&>(func));
+//                        boost::mutex::scoped_lock lock (_resp_mutex);
+                        _publishers.emplace(uuid_, func);
+                    }
+                    processOnTcpMessage(std::move(request_message));
+                } else {
+                    ClusteredMessage request_message = ClusteredMessage{0, 1, 9, true, "__vertx.reply.local", address, options.getPort(), options.getHost(), 4, value};
+                    request_message.setRequest(true);
+                    request_message.setFunc(it->second, func);
+                    processOnTcpMessage(std::move(request_message));
                 }
-                processOnTcpMessage(std::move(request_message));
-            } else {
-                ClusteredMessage request_message = ClusteredMessage{0, 1, 9, true, "__vertx.reply.local", address, options.getPort(), options.getHost(), 4, value};
-                request_message.setRequest(true);
-                request_message.setFunc(it->second, func);
-                processOnTcpMessage(std::move(request_message));
-            }
+            });
+
         }
 
         /**
@@ -168,11 +177,10 @@ namespace eventbus {
     private:
 
         void processOnTcpMessage (ClusteredMessage&& request_message) {
-            std::string addr = request_message.getHost() + ":" +std::to_string(request_message.getPort());
-
+            std::string addr = request_message.getHost() + ":" + fmt::format_int(request_message.getPort()).str();
             // jeśli wiadomość jest zapytaniem z request
             if (request_message.isRequest()) {
-                _eventBusThreadLocal->GetNextLoop()->QueueInLoop([this, request_message = std::move(request_message), addr = std::move(addr)] () {
+//                _eventBusThreadLocal->GetNextLoop()->QueueInLoop([this, request_message = std::move(request_message), addr = std::move(addr)] () {
 
                     if (request_message.isLocal()) {
                         ClusteredMessage response_message{0, 1, 9, true, request_message.getAddress(), request_message.getReplay(), options.getPort(), request_message.getHost(), 4, ""};
@@ -190,9 +198,12 @@ namespace eventbus {
                         function_invoke(request_message, msg);
                         {
                             std::unique_lock<std::mutex> lock(_resp_mutex);
-                            auto reposne_invoke = _publishers[request_message.getAddress()];
-                            reposne_invoke(msg);
-                            _publishers.erase(request_message.getAddress());
+//                            boost::mutex::scoped_lock lock (_resp_mutex);
+                            auto it = _publishers.find(request_message.getAddress());
+                            if (it != _publishers.cend()) {
+                                it->second(msg);
+                                _publishers.erase(it);
+                            }
                         }
                         return;
                     }
@@ -203,11 +214,11 @@ namespace eventbus {
                     msg.setHost(options.getHost());
                     std::string message_str = to_string(msg);
 
-                    _eventBusThreadLocal->GetNextLoop()->QueueInLoop([this, message_str = std::move(message_str), addr = std::move(addr)] () {
+//                    _eventBusThreadLocal->GetNextLoop()->QueueInLoop([this, message_str = std::move(message_str), addr = std::move(addr)] () {
                         processStringMessage(std::move(message_str), std::move(addr));
-                    });
+//                    });
 
-                });
+//                });
                 return;
             }
 
@@ -215,6 +226,7 @@ namespace eventbus {
             if (address.find("__vertx.reply") != std::string::npos) {
                 {
                     std::unique_lock<std::mutex> lock(_resp_mutex);
+//                    boost::mutex::scoped_lock lock (_resp_mutex);
                     auto reposne_invoke = _publishers[address];
                     reposne_invoke(request_message);
                     _publishers.erase(address);
@@ -225,15 +237,15 @@ namespace eventbus {
 
             auto function_invoke = _consumers[request_message.getAddress()];
 
-            _eventBusThreadLocal->GetNextLoop()->QueueInLoop([this, function_invoke, request_message = std::move(request_message), addr = std::move(addr)] () {
+//            _eventBusThreadLocal->GetNextLoop()->QueueInLoop([this, function_invoke, request_message = std::move(request_message), addr = std::move(addr)] () {
                 ClusteredMessage response_message{0, 1, 9, true, request_message.getAddress(), request_message.getReplay(), options.getPort(), request_message.getHost(), 4, ""};
                 function_invoke(request_message, response_message);
 
                 std::string message_str = to_string(response_message);
-                _eventBusThreadLocal->GetNextLoop()->QueueInLoop([this, message_str = std::move(message_str), addr = std::move(addr)] () {
+//                _eventBusThreadLocal->GetNextLoop()->QueueInLoop([this, message_str = std::move(message_str), addr = std::move(addr)] () {
                     processStringMessage(std::move(message_str), std::move(addr));
-                });
-            });
+//                });
+//            });
 
         }
 
@@ -259,6 +271,14 @@ namespace eventbus {
                     client->Connect();
                     client->set_auto_reconnect(false);
                     endpoints.emplace(h, client);
+//                    eb.RunAfter(1000*60*60*60, [this, h] () {
+//                        LOG_TRACE << "remove connection: " << std::to_string(h);
+//                        auto it = endpoints.find(h);
+//                        if (it != endpoints.cend()) {
+//                            it->second->Disconnect();
+//                            endpoints.erase(it);
+//                        }
+//                    });
                     eb.Run();
                 });
                 evConnect.push_back(std::move(f));

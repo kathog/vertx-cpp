@@ -4,6 +4,7 @@ libevent/2.1.11
 glog/0.4.0
 rapidjson/1.1.0
 concurrentqueue/1.0.1
+fmt/6.2.0
 
 [generators]
 cmake

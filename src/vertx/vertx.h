@@ -128,12 +128,12 @@ namespace vertx {
             _workerPool = std::make_shared<evpp::EventLoop>();
             _workerThreadLocal = std::make_shared<evpp::EventLoopThreadPool>(_workerPool.get(), options.getWorkerPoolSize());
             _workerThreadLocal->Start(true);
-            std::string addr = options.getHost() + ":" + std::to_string(options.getPort());
-            LOG_INFO << "worker pool size: " << std::to_string(options.getWorkerPoolSize());
+            std::string addr = options.getHost() + ":" + fmt::format_int(options.getPort()).str();
+            LOG_INFO << "worker pool size: " << fmt::format_int(options.getWorkerPoolSize()).str();
 
             for (uint32_t i = 0; i < options.getWorkerPoolSize(); i++) {
                 evpp::EventLoop* next = _workerThreadLocal->GetNextLoop();
-                std::shared_ptr<evpp::TCPServer> s(new evpp::TCPServer(next, addr, std::to_string(i) + "#server", 0));
+                std::shared_ptr<evpp::TCPServer> s(new evpp::TCPServer(next, addr, fmt::format_int(i).str() + "#server", 0));
                 s->SetMessageCallback([this] (const evpp::TCPConnPtr& conn, evpp::Buffer* msg) {
                     _eventBus->onMessage(conn, msg);
                 });
@@ -141,7 +141,7 @@ namespace vertx {
                 s->Start();
                 _tcpServers.push_back(s);
             }
-            LOG_INFO << "bind eventbus server to host: [" << options.getHost() << "]:" << std::to_string(options.getPort());
+            LOG_INFO << "bind eventbus server to host: [" << options.getHost() << "]:" << fmt::format_int(options.getPort()).str();
             _workerPool->Run();
         }
 
