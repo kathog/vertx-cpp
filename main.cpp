@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
 
     vertx->createNetServer(netOp)->listen(9091, [&] (const evpp::TCPConnPtr& conn, evpp::Buffer* buff)  {
 
-        vertx->eventBus()->request("tarcza", "uuid::generateUUID()", [&conn, buff] (const ClusteredMessage& response) {
+        vertx->eventBus()->request("tarcza", "uuid::generateUUID()", [&conn, buff] (ClusteredMessage& response) {
             const std::string resp = "HTTP/1.1 200 OK\ncontent-length: 0\n\n";
 //            LOG_INFO << "request " << response;
             conn->Send(resp.c_str(), resp.size());
@@ -40,7 +40,7 @@ int main(int argc, char* argv[]) {
 
     vertx->createNetServer(netOp)->listen(9092, [=] (const evpp::TCPConnPtr& conn, evpp::Buffer* buff)  {
 
-        vertx->eventBus()->request("dupa", "uuid::generateUUID()", [&conn, buff] (const ClusteredMessage& response) {
+        vertx->eventBus()->request("dupa", "uuid::generateUUID()", [&conn, buff] (ClusteredMessage& response) {
             const std::string resp = "HTTP/1.1 200 OK\ncontent-length: 0\n\n";
 //            LOG_INFO << "request " << response;
             conn->Send(resp.c_str(), resp.size());
@@ -51,24 +51,25 @@ int main(int argc, char* argv[]) {
 
     vertx->createNetServer(netOp)->listen(9093, [=] (const evpp::TCPConnPtr& conn, evpp::Buffer* buff)  {
 
-        vertx->eventBus()->request("tarcza2", "uuid::generateUUID()", [&conn, buff] (const ClusteredMessage& response) {
+        vertx->eventBus()->request("tarcza2", std::string("uuid::generateUUID()"), [&conn, buff] (ClusteredMessage& response) {
             const std::string resp = "HTTP/1.1 200 OK\ncontent-length: 0\n\n";
-//            LOG_INFO << "request " << response;
+//            LOG_INFO << "request " << response.getBodyAsString();
             conn->Send(resp.c_str(), resp.size());
             buff->Reset();
         });
 
     });
 
-    vertx->eventBus()->consumer("tarcza", [] (const ClusteredMessage& msg, ClusteredMessage& response) {
+    vertx->eventBus()->consumer("tarcza", [] (ClusteredMessage& msg) {
 //        LOG_INFO << "consumer " <<msg;
-        response.setBody(std::string("uuid::generateUUID()"));
+        msg.setReply(std::string("uuid::generateUUID()"));
     });
 
 
-    vertx->eventBus()->localConsumer("tarcza2", [](const ClusteredMessage &msg, ClusteredMessage &response) {
-//        LOG_INFO << "consumer " << uuid::generate_uuid_v4();
-        response.setBody(uuid::generateUUID());
+    vertx->eventBus()->localConsumer("tarcza2", [](ClusteredMessage &msg) {
+        std::string uuid = uuid::generateUUID();
+//        LOG_INFO << "consumer " << uuid << " request body: " << msg.getBodyAsString();
+        msg.setReply(uuid);
     });
 
     vertx->run();

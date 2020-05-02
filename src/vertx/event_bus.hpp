@@ -74,8 +74,8 @@ namespace eventbus {
         std::shared_ptr<hazelcast_cluster> hz;
         std::shared_ptr<evpp::EventLoop> _eventBusPool;
         std::shared_ptr<evpp::EventLoopThreadPool> _eventBusThreadLocal;
-        std::unordered_map<std::string, RequestMsgCallback> _consumers;
-        std::unordered_map<std::string, RequestMsgCallback> _consumersLocal;
+        std::unordered_map<std::string, MsgCallback> _consumers;
+        std::unordered_map<std::string, MsgCallback> _consumersLocal;
         std::unordered_map<std::string, MsgCallback> _publishers;
         std::vector<std::future<void>> evConnect;
         std::unordered_map<long, std::shared_ptr<evpp::TCPClient>> endpoints;
@@ -103,7 +103,7 @@ namespace eventbus {
          * @param address - adres na jakim na nasłuchiwać
          * @param function - funkcjia do wywołania
          */
-        void consumer (std::string&& address, RequestMsgCallback function) {
+        void consumer (std::string&& address, MsgCallback function) {
             _consumers.emplace(address, function);
             hz->addSub(address, options.getPort(), const_cast<std::string &>(options.getHost()));
         }
@@ -114,7 +114,7 @@ namespace eventbus {
          * @param address - adres na jakim na nasłuchiwać
          * @param function - funkcjia do wywołania
          */
-        void localConsumer (std::string&& address, RequestMsgCallback function) {
+        void localConsumer (std::string&& address, MsgCallback function) {
             _consumersLocal.emplace(address, function);
         }
 
@@ -183,25 +183,22 @@ namespace eventbus {
 //                _eventBusThreadLocal->GetNextLoop()->QueueInLoop([this, request_message = std::move(request_message), addr = std::move(addr)] () {
 
                     if (request_message.isLocal()) {
-                        ClusteredMessage response_message{0, 1, 9, true, request_message.getAddress(), request_message.getReplay(), options.getPort(), request_message.getHost(), 4, ""};
-                        ClusteredMessage msg = request_message;
-                        request_message.getFunc()(request_message, msg);
-                        request_message.getCallbackFunc()(msg);
+                        request_message.getFunc()(request_message);
+                        request_message.setBody(std::move(request_message.getReply()));
+                        request_message.getCallbackFunc()(request_message);
                         return ;
                     }
 
                     // jeśli wiadomość jest na tego samego vertx
                     if (request_message.getHost() == options.getHost() && request_message.getPort() == options.getPort()) {
                         auto function_invoke = _consumers[request_message.getReplay()];
-                        ClusteredMessage response_message{0, 1, 9, true, request_message.getAddress(), request_message.getReplay(), options.getPort(), request_message.getHost(), 4, ""};
-                        ClusteredMessage msg = request_message;
-                        function_invoke(request_message, msg);
+                        function_invoke(request_message);
                         {
                             std::unique_lock<std::mutex> lock(_resp_mutex);
-//                            boost::mutex::scoped_lock lock (_resp_mutex);
                             auto it = _publishers.find(request_message.getAddress());
                             if (it != _publishers.cend()) {
-                                it->second(msg);
+                                request_message.setBody(std::move(request_message.getReply()));
+                                it->second(request_message);
                                 _publishers.erase(it);
                             }
                         }
@@ -239,7 +236,7 @@ namespace eventbus {
 
 //            _eventBusThreadLocal->GetNextLoop()->QueueInLoop([this, function_invoke, request_message = std::move(request_message), addr = std::move(addr)] () {
                 ClusteredMessage response_message{0, 1, 9, true, request_message.getAddress(), request_message.getReplay(), options.getPort(), request_message.getHost(), 4, ""};
-                function_invoke(request_message, response_message);
+                function_invoke(request_message);
 
                 std::string message_str = to_string(response_message);
 //                _eventBusThreadLocal->GetNextLoop()->QueueInLoop([this, message_str = std::move(message_str), addr = std::move(addr)] () {

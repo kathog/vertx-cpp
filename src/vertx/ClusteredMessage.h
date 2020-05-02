@@ -14,8 +14,8 @@
 
 class ClusteredMessage;
 
-typedef std::function<void(const ClusteredMessage&, ClusteredMessage&)> RequestMsgCallback;
-typedef std::function<void(const ClusteredMessage&)> MsgCallback;
+//typedef std::function<void(const ClusteredMessage&, ClusteredMessage&)> RequestMsgCallback;
+typedef std::function<void(ClusteredMessage&)> MsgCallback;
 
 class ClusteredMessage {
 
@@ -74,8 +74,8 @@ public:
             result[index++] = c;
         }
         set_int(result, index, 4); // headers
-        if (body.type() == typeid(std::string)) {
-            std::string s_body = getBodyAsString();
+        if (_reply.type() == typeid(std::string)) {
+            std::string s_body = getReplyAsString();
             set_int(result, index, s_body.size()); // body
             for (char c : s_body) {
                 result[index++] = c;
@@ -100,6 +100,14 @@ public:
            << message.address << "\n replay: " << message.replay << "\n port: " << message.port << "\n host: " << message.host
            << "\n headers: " << message.headers << "\n body: " << std::any_cast<std::string>(message.body);
         return os;
+    }
+
+    const std::any &getReply() const {
+        return _reply;
+    }
+
+    void setReply(const std::any &reply)  {
+        _reply = reply;
     }
 
     void setPort(int port) {
@@ -158,6 +166,10 @@ public:
         return std::any_cast<std::string>(body);
     }
 
+    const std::string getReplyAsString () {
+        return std::any_cast<std::string>(_reply);
+    }
+
     bool isRequest() const {
         return request;
     }
@@ -166,7 +178,7 @@ public:
         this->request = request;
     }
 
-    const RequestMsgCallback &getFunc() const {
+    const MsgCallback &getFunc() const {
         return func;
     }
 
@@ -174,7 +186,7 @@ public:
         return callbackFunc;
     }
 
-    void setFunc(const RequestMsgCallback &func, const MsgCallback& callbackFunc) {
+    void setFunc(const MsgCallback &func, const MsgCallback& callbackFunc) {
         this->func = func;
         this->callbackFunc = callbackFunc;
         this->local = true;
@@ -254,8 +266,9 @@ private:
     std::string host;
     int headers;
     std::any body;
+    mutable std::any _reply;
     bool request;
-    RequestMsgCallback func;
+    MsgCallback func;
     MsgCallback callbackFunc;
     bool local = false;
 };
