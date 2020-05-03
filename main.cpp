@@ -1,9 +1,10 @@
 #include <iostream>
-//#define DCHECK_ALWAYS_ON
+#define DCHECK_ALWAYS_ON
 #include <hazelcast/client/ClientConfig.h>
 #include "src/vertx/ClusteredMessage.h"
 #include "src/vertx/vertx.h"
 #include "src/vertx/uuid.hpp"
+#include "src/vertx/http_server.hpp"
 #include <evpp/dns_resolver.h>
 #include <glog/logging.h>
 
@@ -15,8 +16,6 @@ int main(int argc, char* argv[]) {
     hazelcast::client::ClientConfig config;
     hazelcast::client::Address a{"127.0.0.1", 5701 };
     config.getNetworkConfig().addAddress(a);
-    config.setExecutorPoolSize(1);
-    config.getSerializationConfig().addDataSerializableFactory(1001, boost::shared_ptr<serialization::DataSerializableFactory>(new ClusterNodeInfoFactory()));
 
     vertx::VertxOptions op;
     op.setConfig(config).setWorkerPoolSize(4);
@@ -29,7 +28,7 @@ int main(int argc, char* argv[]) {
 
     vertx->createNetServer(netOp)->listen(9091, [&] (const evpp::TCPConnPtr& conn, evpp::Buffer* buff)  {
 
-        vertx->eventBus()->request("tarcza", "uuid::generateUUID()", [&conn, buff] (ClusteredMessage& response) {
+        vertx->eventBus()->request("tarcza", "uuid::generateUUID()", [&conn, buff] (const ClusteredMessage& response) {
             const std::string resp = "HTTP/1.1 200 OK\ncontent-length: 0\n\n";
 //            LOG_INFO << "request " << response;
             conn->Send(resp.c_str(), resp.size());
@@ -40,7 +39,7 @@ int main(int argc, char* argv[]) {
 
     vertx->createNetServer(netOp)->listen(9092, [=] (const evpp::TCPConnPtr& conn, evpp::Buffer* buff)  {
 
-        vertx->eventBus()->request("dupa", "uuid::generateUUID()", [&conn, buff] (ClusteredMessage& response) {
+        vertx->eventBus()->request("dupa", "uuid::generateUUID()", [&conn, buff] (const ClusteredMessage& response) {
             const std::string resp = "HTTP/1.1 200 OK\ncontent-length: 0\n\n";
 //            LOG_INFO << "request " << response;
             conn->Send(resp.c_str(), resp.size());
@@ -49,10 +48,14 @@ int main(int argc, char* argv[]) {
 
     });
 
-    vertx->createNetServer(netOp)->listen(9093, [=] (const evpp::TCPConnPtr& conn, evpp::Buffer* buff)  {
+    vertx->createNetServer(netOp)->listen(9094, [=] (const evpp::TCPConnPtr& conn, evpp::Buffer* buff)  {
 
-        vertx->eventBus()->request("tarcza2", std::string("uuid::generateUUID()"), [&conn, buff] (ClusteredMessage& response) {
-            const std::string resp = "HTTP/1.1 200 OK\ncontent-length: 0\n\n";
+        vertx->eventBus()->request("tarcza2", std::string("uuid::generateUUID()"), [&conn, buff] (const ClusteredMessage& response) {
+            const std::string resp = "HTTP/1.1 200 OK\n"
+                                     "content-type: application/json\n"
+                                     "Date: Sun, 03 May 2020 07:05:15 GMT\n"
+                                     "Content-Length: 14\n\n"
+                                     "{\"code\": \"UP\"}";
 //            LOG_INFO << "request " << response.getBodyAsString();
             conn->Send(resp.c_str(), resp.size());
             buff->Reset();
@@ -60,16 +63,29 @@ int main(int argc, char* argv[]) {
 
     });
 
+    http::HttpServer httpServer = vertx->createHttpServer(http::HttpServerOptions{}.setPoolSize(4))->addRoute("/", [&](evpp::EventLoop* loop, const evpp::http::ContextPtr& ctx, const evpp::http::HTTPSendResponseCallback& cb) {
+
+        vertx->eventBus()->request("tarcza2", std::string("uuid::generateUUID()"), [ctx, cb] (const ClusteredMessage& response) {
+            ctx->AddResponseHeader("content-type", "application/json");
+//            ctx->set_response_http_code(200);
+            cb("{\"code\": \"UP\"}");
+        });
+
+    });
+
+    httpServer.listen(9093);
+
+
     vertx->eventBus()->consumer("tarcza", [] (ClusteredMessage& msg) {
 //        LOG_INFO << "consumer " <<msg;
-        msg.setReply(std::string("uuid::generateUUID()"));
+        msg.reply(std::string("uuid::generateUUID()"));
     });
 
 
     vertx->eventBus()->localConsumer("tarcza2", [](ClusteredMessage &msg) {
         std::string uuid = uuid::generateUUID();
 //        LOG_INFO << "consumer " << uuid << " request body: " << msg.getBodyAsString();
-        msg.setReply(uuid);
+        msg.reply(uuid);
     });
 
     vertx->run();

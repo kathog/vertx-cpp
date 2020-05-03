@@ -11,6 +11,7 @@
 #include "hazelcast_cluster.h"
 #include "event_bus.hpp"
 #include "net_server.hpp"
+#include "http_server.hpp"
 
 using namespace std::chrono_literals;
 
@@ -26,6 +27,8 @@ namespace vertx {
         }
 
         VertxOptions& setConfig(hazelcast::client::ClientConfig config) {
+            config.setExecutorPoolSize(1);
+            config.getSerializationConfig().addDataSerializableFactory(1001, boost::shared_ptr<serialization::DataSerializableFactory>(new ClusterNodeInfoFactory()));
             this->config = config;
             return *this;
         }
@@ -122,6 +125,10 @@ namespace vertx {
 
         net::NetServer* createNetServer(net::NetServerOptions options = {}) {
             return new net::NetServer(options);
+        }
+
+        http::HttpServer* createHttpServer(http::HttpServerOptions options = {}) {
+            return new http::HttpServer(options);
         }
 
         void run () {

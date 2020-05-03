@@ -125,7 +125,7 @@ namespace eventbus {
          * @param value - wartość do przesłania
          * @param func - funkcja wywołana po otrzymaniu odpowiedzi
          */
-        void request (std::string&& address, std::any value, MsgCallback func) {
+        void request (std::string&& address, std::any value, RequestMsgCallback func) {
             _eventBusThreadLocal->GetNextLoop()->QueueInLoop([this, address = std::move(address), value = std::move(value), func = std::move(func)]() {
                 auto it = _consumersLocal.find(address);
                 if (it == _consumersLocal.cend()) {
@@ -184,7 +184,7 @@ namespace eventbus {
 
                     if (request_message.isLocal()) {
                         request_message.getFunc()(request_message);
-                        request_message.setBody(std::move(request_message.getReply()));
+                        request_message.body(std::move(request_message.reply()));
                         request_message.getCallbackFunc()(request_message);
                         return ;
                     }
@@ -197,7 +197,7 @@ namespace eventbus {
                             std::unique_lock<std::mutex> lock(_resp_mutex);
                             auto it = _publishers.find(request_message.getAddress());
                             if (it != _publishers.cend()) {
-                                request_message.setBody(std::move(request_message.getReply()));
+                                request_message.body(std::move(request_message.reply()));
                                 it->second(request_message);
                                 _publishers.erase(it);
                             }

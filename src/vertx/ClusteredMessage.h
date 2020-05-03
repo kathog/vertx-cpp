@@ -14,7 +14,7 @@
 
 class ClusteredMessage;
 
-//typedef std::function<void(const ClusteredMessage&, ClusteredMessage&)> RequestMsgCallback;
+typedef std::function<void(const ClusteredMessage&)> RequestMsgCallback;
 typedef std::function<void(ClusteredMessage&)> MsgCallback;
 
 class ClusteredMessage {
@@ -75,7 +75,7 @@ public:
         }
         set_int(result, index, 4); // headers
         if (_reply.type() == typeid(std::string)) {
-            std::string s_body = getReplyAsString();
+            std::string s_body = replyAsString();
             set_int(result, index, s_body.size()); // body
             for (char c : s_body) {
                 result[index++] = c;
@@ -91,22 +91,14 @@ public:
     ClusteredMessage(int messageSize, int protocolVersion, int systemCodecId, bool send, const std::string &address,
                      const std::string &replay, int port, const std::string &host, int headers,
                      const std::any &body) : message_size(messageSize), protocol_version(protocolVersion),
-                                                 system_codec_id(systemCodecId), send(send), address(address),
-                                                 replay(replay), port(port), host(host), headers(headers), body(body) {}
+                                             system_codec_id(systemCodecId), send(send), address(address),
+                                             replay(replay), port(port), host(host), headers(headers), _body(body) {}
 
-    friend std::ostream &operator<<(std::ostream &os, const ClusteredMessage &message) {
-        os << "message_size: " << message.message_size << "\n protocol_version: " << message.protocol_version
-           << "\n system_codec_id: " << message.system_codec_id << "\n send: " << message.send << "\n address: "
-           << message.address << "\n replay: " << message.replay << "\n port: " << message.port << "\n host: " << message.host
-           << "\n headers: " << message.headers << "\n body: " << std::any_cast<std::string>(message.body);
-        return os;
-    }
-
-    const std::any &getReply() const {
+    const std::any &reply() const {
         return _reply;
     }
 
-    void setReply(const std::any &reply)  {
+    void reply(const std::any &reply)  {
         _reply = reply;
     }
 
@@ -118,8 +110,8 @@ public:
         ClusteredMessage::host = host;
     }
 
-    void setBody(const std::any &body) {
-        this->body = body;
+    void body(const std::any &body) {
+        this->_body = body;
     }
 
     int getMessageSize() const {
@@ -158,16 +150,25 @@ public:
         return headers;
     }
 
-    const std::any &getBody() const {
-        return body;
+    const std::any &body() const {
+        return _body;
     }
 
-    const std::string getBodyAsString () {
-        return std::any_cast<std::string>(body);
+    std::string bodyAsString () {
+        try {
+            return std::any_cast<std::string>(_body);
+        } catch (std::bad_any_cast e) {
+            return std::string{};
+        }
+
     }
 
-    const std::string getReplyAsString () {
-        return std::any_cast<std::string>(_reply);
+    const std::string replyAsString () {
+        try {
+            return std::any_cast<std::string>(_reply);
+        } catch (std::bad_any_cast e) {
+            return std::string{};
+        }
     }
 
     bool isRequest() const {
@@ -194,6 +195,14 @@ public:
 
     bool isLocal() const {
         return local;
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const ClusteredMessage &message) {
+        os << "message_size: " << message.message_size << "\n protocol_version: " << message.protocol_version
+           << "\n system_codec_id: " << message.system_codec_id << "\n send: " << message.send << "\n address: "
+           << message.address << "\n replay: " << message.replay << "\n port: " << message.port << "\n host: " << message.host
+           << "\n headers: " << message.headers << "\n body: " << message._body.has_value();
+        return os;
     }
 
 private:
@@ -265,7 +274,7 @@ private:
     int port;
     std::string host;
     int headers;
-    std::any body;
+    std::any _body;
     mutable std::any _reply;
     bool request;
     MsgCallback func;
