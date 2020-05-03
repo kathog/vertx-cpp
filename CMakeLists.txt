@@ -6,13 +6,13 @@ include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 conan_basic_setup(TARGETS)
 include_directories(${PROJECT_INCLUDE_DIR}/src)
 include_directories(${PROJECT_SOURCE_DIR}/include)
-include_directories(/home/nerull/dev/repo/cpp/hazelcast-cpp-client/hazelcast-cpp-client/cpp/Linux_64/hazelcast/include )
+include_directories(${PROJECT_SOURCE_DIR}/../hazelcast-cpp-client/hazelcast-cpp-client/cpp/Linux_64/hazelcast/include )
 
 set(LIBRARIES_SEARCH_PATHS ${EXTRA_LIBRARY})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
 
 add_library(hazelcast STATIC IMPORTED)
-set_property(TARGET hazelcast PROPERTY IMPORTED_LOCATION /home/nerull/dev/repo/cpp/hazelcast-cpp-client/hazelcast-cpp-client/cpp/Linux_64/hazelcast/lib/libHazelcastClient3.12_64.a)
+set_property(TARGET hazelcast PROPERTY IMPORTED_LOCATION ${PROJECT_SOURCE_DIR}/../hazelcast-cpp-client/hazelcast-cpp-client/cpp/Linux_64/hazelcast/lib/libHazelcastClient3.12_64.a)
 
 add_library(evpp STATIC IMPORTED)
 set_property(TARGET evpp PROPERTY IMPORTED_LOCATION /usr/local/lib/libevpp_static.a)
