@@ -3,6 +3,7 @@
 //
 #include <benchmark/benchmark.h>
 #include <fmt/os.h>
+#include "vertx/ClusteredMessage.h"
 
 class Fixture : public benchmark::Fixture {
 public:
@@ -40,4 +41,4 @@ BENCHMARK_DEFINE_F(Fixture, to_string) (benchmark::State& state) {
 
 BENCHMARK_REGISTER_F(Fixture, to_string)->Unit(benchmark::kNanosecond);
 
-BENCHMARK_MAIN();
+BENCHMARK_MAIN()ClusteredMessage;
