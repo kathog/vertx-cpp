@@ -195,7 +195,7 @@ conan install ../ -if=. -pr=default
 ```
 ### Cmake
 You must have the same base directory as the hazelcast directory or change the hazelcast directory in CMakeLists.txt.
-Next
+
 ```
 cmake .. -DCMAKE_BUILD_TYPE=Release
 ```
