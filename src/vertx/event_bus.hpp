@@ -80,17 +80,7 @@ namespace eventbus {
         std::vector<std::future<void>> evConnect;
         std::unordered_map<long, std::shared_ptr<evpp::TCPClient>> endpoints;
         std::vector<std::future<void>> fs;
-//        std::queue<ClusteredMessage> _messages;
-
-//        moodycamel::ConcurrentQueue<ClusteredMessage> _messages;
-
-//        std::mutex _queue_mutex;
         std::mutex _resp_mutex;
-
-//        boost::mutex _resp_mutex;
-
-
-//        std::condition_variable _condition;
 
     public:
         EventBus(std::shared_ptr<hazelcast_cluster> hz, EventBusOptions& options) : hz(hz), options(options) {
@@ -98,10 +88,10 @@ namespace eventbus {
         }
 
         /**
-         * Dodanie konsumera do eventbus
+         * Add consumer to eventbus
          *
-         * @param address - adres na jakim na nasłuchiwać
-         * @param function - funkcjia do wywołania
+         * @param address - address of conumser in eventbus
+         * @param function - invoke function on consumer
          */
         void consumer (std::string&& address, MsgCallback function) {
             _consumers.emplace(address, function);
@@ -109,21 +99,21 @@ namespace eventbus {
         }
 
         /**
-         * Dodanie konsumera lokalnego do eventbus
+         * Add a local consumer to eventbus
          *
-         * @param address - adres na jakim na nasłuchiwać
-         * @param function - funkcjia do wywołania
+         * @param address - address of conumser in eventbus
+         * @param function - invoke function on consumer
          */
         void localConsumer (std::string&& address, MsgCallback function) {
             _consumersLocal.emplace(address, function);
         }
 
         /**
-         * Wysłanie zapytania do consumera za pomocą eventbus
+         * Request query to eventbus
          *
-         * @param address - adres konsumera
-         * @param value - wartość do przesłania
-         * @param func - funkcja wywołana po otrzymaniu odpowiedzi
+         * @param address - consumer address
+         * @param value - value to send
+         * @param func - response handler function
          */
         void request (std::string&& address, std::any value, RequestMsgCallback func) {
             _eventBusThreadLocal->GetNextLoop()->QueueInLoop([this, address = std::move(address), value = std::move(value), func = std::move(func)]() {
@@ -135,7 +125,6 @@ namespace eventbus {
                     request_message.setRequest(true);
                     {
                     std::unique_lock<std::mutex> lock(_resp_mutex);
-//                        boost::mutex::scoped_lock lock (_resp_mutex);
                         _publishers.emplace(uuid_, func);
                     }
                     processOnTcpMessage(std::move(request_message));
@@ -150,10 +139,10 @@ namespace eventbus {
         }
 
         /**
-         * Przechwytuje wszystkie zdarzenia przesłane do danej instancji vertx
+         * Intercepts all messages sent to the eventbus TCP bridge
          *
-         * @param conn - połączenie
-         * @param msg - odebana wiadomość
+         * @param conn - connection
+         * @param msg - send message to bridge
          */
         void onMessage(const evpp::TCPConnPtr& conn, evpp::Buffer* msg) {
             std::string request = msg->ToString();
@@ -180,42 +169,35 @@ namespace eventbus {
             std::string addr = request_message.getHost() + ":" + fmt::format_int(request_message.getPort()).str();
             // jeśli wiadomość jest zapytaniem z request
             if (request_message.isRequest()) {
-//                _eventBusThreadLocal->GetNextLoop()->QueueInLoop([this, request_message = std::move(request_message), addr = std::move(addr)] () {
+                if (request_message.isLocal()) {
+                    request_message.getFunc()(request_message);
+                    request_message.body(std::move(request_message.reply()));
+                    request_message.getCallbackFunc()(request_message);
+                    return ;
+                }
 
-                    if (request_message.isLocal()) {
-                        request_message.getFunc()(request_message);
-                        request_message.body(std::move(request_message.reply()));
-                        request_message.getCallbackFunc()(request_message);
-                        return ;
-                    }
-
-                    // jeśli wiadomość jest na tego samego vertx
-                    if (request_message.getHost() == options.getHost() && request_message.getPort() == options.getPort()) {
-                        auto function_invoke = _consumers[request_message.getReplay()];
-                        function_invoke(request_message);
-                        {
-                            std::unique_lock<std::mutex> lock(_resp_mutex);
-                            auto it = _publishers.find(request_message.getAddress());
-                            if (it != _publishers.cend()) {
-                                request_message.body(std::move(request_message.reply()));
-                                it->second(request_message);
-                                _publishers.erase(it);
-                            }
+                // jeśli wiadomość jest na tego samego vertx
+                if (request_message.getHost() == options.getHost() && request_message.getPort() == options.getPort()) {
+                    auto function_invoke = _consumers[request_message.getReplay()];
+                    function_invoke(request_message);
+                    {
+                        std::unique_lock<std::mutex> lock(_resp_mutex);
+                        auto it = _publishers.find(request_message.getAddress());
+                        if (it != _publishers.cend()) {
+                            request_message.body(std::move(request_message.reply()));
+                            it->second(request_message);
+                            _publishers.erase(it);
                         }
-                        return;
                     }
+                    return;
+                }
 
-                    // jeśli jest na innego vertx
-                    ClusteredMessage msg = request_message;
-                    msg.setPort(options.getPort());
-                    msg.setHost(options.getHost());
-                    std::string message_str = to_string(msg);
-
-//                    _eventBusThreadLocal->GetNextLoop()->QueueInLoop([this, message_str = std::move(message_str), addr = std::move(addr)] () {
-                        processStringMessage(std::move(message_str), std::move(addr));
-//                    });
-
-//                });
+                // jeśli jest na innego vertx
+                ClusteredMessage msg = request_message;
+                msg.setPort(options.getPort());
+                msg.setHost(options.getHost());
+                std::string message_str = to_string(msg);
+                processStringMessage(std::move(message_str), std::move(addr));
                 return;
             }
 
@@ -223,7 +205,6 @@ namespace eventbus {
             if (address.find("__vertx.reply") != std::string::npos) {
                 {
                     std::unique_lock<std::mutex> lock(_resp_mutex);
-//                    boost::mutex::scoped_lock lock (_resp_mutex);
                     auto reposne_invoke = _publishers[address];
                     reposne_invoke(request_message);
                     _publishers.erase(address);
@@ -234,23 +215,18 @@ namespace eventbus {
 
             auto function_invoke = _consumers[request_message.getAddress()];
 
-//            _eventBusThreadLocal->GetNextLoop()->QueueInLoop([this, function_invoke, request_message = std::move(request_message), addr = std::move(addr)] () {
-                ClusteredMessage response_message{0, 1, 9, true, request_message.getAddress(), request_message.getReplay(), options.getPort(), request_message.getHost(), 4, ""};
-                function_invoke(request_message);
+            ClusteredMessage response_message{0, 1, 9, true, request_message.getAddress(), request_message.getReplay(), options.getPort(), request_message.getHost(), 4, ""};
+            function_invoke(request_message);
 
-                std::string message_str = to_string(response_message);
-//                _eventBusThreadLocal->GetNextLoop()->QueueInLoop([this, message_str = std::move(message_str), addr = std::move(addr)] () {
-                    processStringMessage(std::move(message_str), std::move(addr));
-//                });
-//            });
-
+            std::string message_str = to_string(response_message);
+            processStringMessage(std::move(message_str), std::move(addr));
         }
 
         /**
-         * Wysłanie wiadomości po TCP
+         * Send message to consumer or sender via tcp
          *
-         * @param message_str
-         * @param addr
+         * @param message_str - message to send
+         * @param addr - tcp address
          */
         void processStringMessage (const std::string&& message_str, const std::string&& addr) {
             auto h = std::hash<std::string>()(addr);
@@ -268,14 +244,6 @@ namespace eventbus {
                     client->Connect();
                     client->set_auto_reconnect(false);
                     endpoints.emplace(h, client);
-//                    eb.RunAfter(1000*60*60*60, [this, h] () {
-//                        LOG_TRACE << "remove connection: " << std::to_string(h);
-//                        auto it = endpoints.find(h);
-//                        if (it != endpoints.cend()) {
-//                            it->second->Disconnect();
-//                            endpoints.erase(it);
-//                        }
-//                    });
                     eb.Run();
                 });
                 evConnect.push_back(std::move(f));
@@ -285,7 +253,7 @@ namespace eventbus {
         }
 
         /**
-         * Inicjalizacja evenloop obsługująca całe flow przetwarzania komunikatów na eventbus
+         * Init eventloop for eventbus tcp bridge
          */
         void allocateEventLoop() {
             LOG_DEBUG << " Init EventLoop... in size: " << options.getEventBusPoolSize();
