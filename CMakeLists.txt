@@ -4,7 +4,7 @@ project(vertx-cpp)
 set(CMAKE_CXX_STANDARD 20)
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 conan_basic_setup(TARGETS)
-include_directories(${PROJECT_INCLUDE_DIR}/src)
+include_directories(${PROJECT_SOURCE_DIR}/src)
 include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${PROJECT_SOURCE_DIR}/../hazelcast-cpp-client/hazelcast-cpp-client/cpp/Linux_64/hazelcast/include )
 

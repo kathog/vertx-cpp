@@ -1,10 +1,10 @@
 #include <iostream>
 #define DCHECK_ALWAYS_ON
 #include <hazelcast/client/ClientConfig.h>
-#include "src/vertx/ClusteredMessage.h"
-#include "src/vertx/vertx.h"
-#include "src/vertx/uuid.hpp"
-#include "src/vertx/http_server.hpp"
+#include "vertx/ClusteredMessage.h"
+#include "vertx/vertx.h"
+#include "vertx/uuid.hpp"
+#include "vertx/http_server.hpp"
 #include <evpp/dns_resolver.h>
 #include <glog/logging.h>
 
