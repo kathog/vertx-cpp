@@ -117,7 +117,7 @@ int main(int argc, char* argv[]) {
   op.setConfig(config);
 
   std::shared_ptr<vertx::Vertx> vertx = vertx::Vertx::clusteredVertx(op);
-  vertx->eventBus()->request("consumer", std::string("ping"), [&conn, buff] (ClusteredMessage& response) {
+  vertx->eventBus()->request("consumer", std::string("ping"), [] (ClusteredMessage& response) {
       std::cout << response.bodyAsString() << std::endl;
   });
   vertx->run();
