@@ -116,17 +116,7 @@ namespace eventbus {
         void request (std::string&& address, std::any value, RequestMsgCallback func) {
             _eventBusThreadLocal->GetNextLoop()->QueueInLoop([this, address = std::move(address), value = std::move(value), func = std::move(func)]() {
                 auto it = _consumersLocal.find(address);
-                if (it == _consumersLocal.cend()) {
-//                    std::string uuid_ = "__vertx.reply." + uuid::generateUUID();
-//                    ServerID server_ = hz->next(address);
-//                    ClusteredMessage request_message = ClusteredMessage{0, 1, 9, true, uuid_, address, server_.getPort(), server_.getHost(), 4, value};
-//                    request_message.setRequest(true);
-//                    {
-//                    std::unique_lock<std::mutex> lock(_resp_mutex);
-//                        _publishers.emplace(uuid_, func);
-//                    }
-//                    processOnTcpMessage(std::move(request_message));
-                } else {
+                if (it != _consumersLocal.cend()) {
                     ClusteredMessage request_message = ClusteredMessage{0, 1, 9, true, "__vertx.reply.local", address, options.getPort(), options.getHost(), 4, value};
                     request_message.setRequest(true);
                     request_message.setFunc(it->second, func);

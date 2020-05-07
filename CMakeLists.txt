@@ -10,6 +10,7 @@ include_directories(${PROJECT_SOURCE_DIR}/src)
 include_directories(${PROJECT_SOURCE_DIR}/include)
 IF(_HZ_ENABLE)
 include_directories(${PROJECT_SOURCE_DIR}/../hazelcast-cpp-client/hazelcast-cpp-client/cpp/Linux_64/hazelcast/include )
+add_compile_definitions(_HZ_ENABLE)
 ENDIF(_HZ_ENABLE)
 
 
