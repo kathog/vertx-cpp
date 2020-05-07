@@ -2,11 +2,11 @@
 
 [![Platform](https://img.shields.io/badge/platform-%20%20%20%20Linux-green.svg?style=flat)](https://github.com/kathog/vertx-cpp)
 [![License](https://img.shields.io/badge/license-%20%20BSD%203%20clause-yellow.svg?style=flat)](LICENSE)
-[![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](http://www.repostatus.org/badges/latest/active.svg)](http://www.repostatus.org/#active)
+[![Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](https://www.repostatus.org/badges/latest/wip.svg)](https://www.repostatus.org/#wip)
 
 # Introduction
 
-[vertx-cpp](https://github.com/kathog/vertx-cpp) its a simple implementation of [vert.x](https://github.com/eclipse-vertx/vert.x). The vertx-cpp engine is based on [evpp](https://github.com/Qihoo360/evpp) as a multi-threaded nonblocking event-driven engine.
+[vertx-cpp](https://github.com/kathog/vertx-cpp) its a simple implementation of [vert.x](https://github.com/eclipse-vertx/vert.x) in C++. The vertx-cpp engine is based on [evpp](https://github.com/Qihoo360/evpp) as a multi-threaded nonblocking event-driven engine.
 Currently, the only implementation is the cluster version based on hazelcast as a cluster manager. In the future there will also be a standalone version and other implementations of the cluster manager
 
 # Features
@@ -117,7 +117,7 @@ int main(int argc, char* argv[]) {
   op.setConfig(config);
 
   std::shared_ptr<vertx::Vertx> vertx = vertx::Vertx::clusteredVertx(op);
-  vertx->eventBus()->request("consumer", std::string("ping"), [&conn, buff] (ClusteredMessage& response) {
+  vertx->eventBus()->request("consumer", std::string("ping"), [] (ClusteredMessage& response) {
       std::cout << response.bodyAsString() << std::endl;
   });
   vertx->run();
