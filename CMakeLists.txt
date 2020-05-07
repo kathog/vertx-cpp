@@ -4,7 +4,7 @@ project(vertx-cpp)
 set(CMAKE_CXX_STANDARD 20)
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 conan_basic_setup(TARGETS)
-set(_HZ_ENABLE OFF)
+#set(_HZ_ENABLE OFF)
 set(DCHECK_ALWAYS_ON ON)
 
 IF(DCHECK_ALWAYS_ON)
