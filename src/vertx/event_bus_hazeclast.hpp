@@ -71,6 +71,7 @@ namespace eventbus {
     class EventBus {
     private:
         EventBusOptions options;
+        std::shared_ptr<hazelcast_cluster> hz;
         std::shared_ptr<evpp::EventLoop> _eventBusPool;
         std::shared_ptr<evpp::EventLoopThreadPool> _eventBusThreadLocal;
         std::unordered_map<std::string, MsgCallback> _consumers;
@@ -82,7 +83,7 @@ namespace eventbus {
         std::mutex _resp_mutex;
 
     public:
-        EventBus(EventBusOptions& options) : options(options) {
+        EventBus(std::shared_ptr<hazelcast_cluster> hz, EventBusOptions& options) : hz(hz), options(options) {
             allocateEventLoop();
         }
 
@@ -93,7 +94,8 @@ namespace eventbus {
          * @param function - invoke function on consumer
          */
         void consumer (std::string&& address, MsgCallback function) {
-            _consumersLocal.emplace(address, function);
+            _consumers.emplace(address, function);
+            hz->addSub(address, options.getPort(), const_cast<std::string &>(options.getHost()));
         }
 
         /**
@@ -117,15 +119,15 @@ namespace eventbus {
             _eventBusThreadLocal->GetNextLoop()->QueueInLoop([this, address = std::move(address), value = std::move(value), func = std::move(func)]() {
                 auto it = _consumersLocal.find(address);
                 if (it == _consumersLocal.cend()) {
-//                    std::string uuid_ = "__vertx.reply." + uuid::generateUUID();
-//                    ServerID server_ = hz->next(address);
-//                    ClusteredMessage request_message = ClusteredMessage{0, 1, 9, true, uuid_, address, server_.getPort(), server_.getHost(), 4, value};
-//                    request_message.setRequest(true);
-//                    {
-//                    std::unique_lock<std::mutex> lock(_resp_mutex);
-//                        _publishers.emplace(uuid_, func);
-//                    }
-//                    processOnTcpMessage(std::move(request_message));
+                    std::string uuid_ = "__vertx.reply." + uuid::generateUUID();
+                    ServerID server_ = hz->next(address);
+                    ClusteredMessage request_message = ClusteredMessage{0, 1, 9, true, uuid_, address, server_.getPort(), server_.getHost(), 4, value};
+                    request_message.setRequest(true);
+                    {
+                    std::unique_lock<std::mutex> lock(_resp_mutex);
+                        _publishers.emplace(uuid_, func);
+                    }
+                    processOnTcpMessage(std::move(request_message));
                 } else {
                     ClusteredMessage request_message = ClusteredMessage{0, 1, 9, true, "__vertx.reply.local", address, options.getPort(), options.getHost(), 4, value};
                     request_message.setRequest(true);

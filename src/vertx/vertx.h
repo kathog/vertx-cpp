@@ -8,8 +8,13 @@
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <evpp/tcp_server.h>
+
+#ifdef _HZ_ENABLE
 #include "hazelcast_cluster.h"
+#include "event_bus_hazeclast.hpp"
+#else
 #include "event_bus.hpp"
+#endif
 #include "net_server.hpp"
 #include "http_server.hpp"
 
@@ -26,12 +31,17 @@ namespace vertx {
             eventBusOptions.setHost(host).setPort(port);
         }
 
+#ifdef _HZ_ENABLE
         VertxOptions& setConfig(hazelcast::client::ClientConfig config) {
             config.setExecutorPoolSize(1);
             config.getSerializationConfig().addDataSerializableFactory(1001, boost::shared_ptr<serialization::DataSerializableFactory>(new ClusterNodeInfoFactory()));
             this->config = config;
             return *this;
         }
+        const ClientConfig &getConfig() const {
+            return config;
+        }
+#endif
 
         VertxOptions& setWorkerPoolSize(int size) {
             workerPoolSize = size;
@@ -52,9 +62,7 @@ namespace vertx {
             return this->eventBusOptions;
         }
 
-        const ClientConfig &getConfig() const {
-            return config;
-        }
+
 
         int getWorkerPoolSize() const {
             return workerPoolSize;
@@ -70,7 +78,9 @@ namespace vertx {
 
     private:
         eventbus::EventBusOptions eventBusOptions;
+#ifdef _HZ_ENABLE
         hazelcast::client::ClientConfig config;
+#endif
         int workerPoolSize;
         std::string host;
         int port;
@@ -113,9 +123,13 @@ namespace vertx {
         static std::shared_ptr<Vertx> clusteredVertx (VertxOptions options) {
             std::shared_ptr<Vertx> vertx = std::make_shared<Vertx>();
             vertx->options = options;
+#ifdef _HZ_ENABLE
             vertx->_hz = std::make_shared<hazelcast_cluster>(options.getConfig());
             vertx->_hz->join(vertx->options.getPort(), const_cast<std::string &>(vertx->options.getHost()));
             vertx->_eventBus = std::make_shared<eventbus::EventBus>(vertx->_hz, vertx->options.getEventBusOptions());
+#else
+            vertx->_eventBus = std::make_shared<eventbus::EventBus>(vertx->options.getEventBusOptions());
+#endif
             return vertx;
         }
 
@@ -154,7 +168,9 @@ namespace vertx {
 
 
     private:
+#ifdef _HZ_ENABLE
         std::shared_ptr<hazelcast_cluster> _hz;
+#endif
         std::shared_ptr<evpp::EventLoop> _workerPool;
         std::shared_ptr<evpp::EventLoopThreadPool> _workerThreadLocal;
         std::vector<std::shared_ptr<evpp::TCPServer>> _tcpServers;

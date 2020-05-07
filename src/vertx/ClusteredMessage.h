@@ -11,6 +11,8 @@
 #include <mutex>
 #include <condition_variable>
 #include <any>
+#include <functional>
+#include <sstream>
 
 class ClusteredMessage;
 

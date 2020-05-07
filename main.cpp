@@ -1,6 +1,6 @@
 #include <iostream>
 #define DCHECK_ALWAYS_ON
-#include <hazelcast/client/ClientConfig.h>
+//#include <hazelcast/client/ClientConfig.h>
 #include "vertx/ClusteredMessage.h"
 #include "vertx/vertx.h"
 #include "vertx/uuid.hpp"
@@ -13,12 +13,13 @@ int main(int argc, char* argv[]) {
 //    FLAGS_logbuflevel = google::GLOG_INFO;
 //    FLAGS_colorlogtostderr = 1;
     google::InitGoogleLogging(argv[0]);
-    hazelcast::client::ClientConfig config;
-    hazelcast::client::Address a{"127.0.0.1", 5701 };
-    config.getNetworkConfig().addAddress(a);
+//    hazelcast::client::ClientConfig config;
+//    hazelcast::client::Address a{"127.0.0.1", 5701 };
+//    config.getNetworkConfig().addAddress(a);
 
     vertx::VertxOptions op;
-    op.setConfig(config).setWorkerPoolSize(4);
+//    op.setConfig(config);
+    op.setWorkerPoolSize(4);
     op.getEventBusOptions().setEventBusPoolSize(12);
 
     std::shared_ptr<vertx::Vertx> vertx = vertx::Vertx::clusteredVertx(op);
