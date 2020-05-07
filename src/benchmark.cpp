@@ -41,4 +41,4 @@ BENCHMARK_DEFINE_F(Fixture, to_string) (benchmark::State& state) {
 
 BENCHMARK_REGISTER_F(Fixture, to_string)->Unit(benchmark::kNanosecond);
 
-BENCHMARK_MAIN()ClusteredMessage;
+BENCHMARK_MAIN();
