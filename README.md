@@ -7,7 +7,7 @@
 # Introduction
 
 [vertx-cpp](https://github.com/kathog/vertx-cpp) its a simple implementation of [vert.x](https://github.com/eclipse-vertx/vert.x) in C++. The vertx-cpp engine is based on [evpp](https://github.com/Qihoo360/evpp) as a multi-threaded nonblocking event-driven engine.
-Currently, the only implementation is the cluster version based on hazelcast as a cluster manager. In the future there will also be a standalone version and other implementations of the cluster manager
+Currently, the only implementation is the cluster version based on hazelcast as a cluster manager and standalone instance. In the future there will also be other implementations of the cluster manager
 
 # Features
 
